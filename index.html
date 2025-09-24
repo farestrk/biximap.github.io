@@ -72,59 +72,6 @@
             height: 1rem;
         }
         
-        .stats {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        
-        .stat {
-            background: #f1f5f9;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-        }
-        
-        .stat-value {
-            font-weight: 700;
-            color: #1e40af;
-        }
-        
-        .legend {
-            background: white;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin: 1rem 2rem;
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-        }
-        
-        .legend h3 {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            color: #374151;
-        }
-        
-        .legend-items {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.875rem;
-        }
-        
-        .legend-color {
-            width: 1rem;
-            height: 1rem;
-            border-radius: 50%;
-            border: 2px solid rgba(0, 0, 0, 0.1);
-        }
-        
         .map-container {
             position: relative;
             height: calc(100vh - 200px);
@@ -218,28 +165,35 @@
         .status-low_bikes { background: #dbeafe; color: #2563eb; }
         .status-available { background: #dcfce7; color: #16a34a; }
         
-        @media (max-width: 768px) {
+        @media (max-width: 768px), (max-height: 500px) {
             .header {
-                padding: 1rem;
+                display: none; /* Hide header on mobile */
             }
-            
+
             .controls {
-                padding: 1rem;
-                flex-direction: column;
-                align-items: stretch;
+                display: flex;
+                flex-wrap: wrap; /* Ensure controls fit within the viewport */
+                justify-content: center; /* Center align controls */
+                position: absolute;
+                top: 1rem;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(255, 255, 255, 0.9); /* Semi-transparent background */
+                padding: 0.5rem;
+                border-radius: 0.5rem;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                z-index: 1000; /* Ensure it appears above the map */
             }
-            
-            .legend {
-                margin: 1rem;
+
+            .checkbox-container {
+                flex: 1 1 auto; /* Allow checkboxes to wrap */
+                text-align: center; /* Center align individual checkboxes */
             }
-            
+
             .map-container {
-                margin: 0 1rem 1rem 1rem;
-                height: calc(100vh - 250px);
-            }
-            
-            .legend-items {
-                justify-content: center;
+                margin: 0;
+                height: 100vh; /* Keep the map full height */
+                border-radius: 0; /* Remove border radius */
             }
         }
     </style>
@@ -257,67 +211,25 @@
     
     <div class="controls">
         <div class="control-group">
-            <label>Show Stations:</label>
             <div class="checkbox-container">
                 <input type="checkbox" id="showNo_docks" checked>
-                <label for="showNo_docks">Full (No Docks)</label>
+                <label for="showNo_docks">Full</label>
             </div>
             <div class="checkbox-container">
                 <input type="checkbox" id="showNo_bikes" checked>
-                <label for="showNo_bikes">Empty (No Bikes)</label>
+                <label for="showNo_bikes">Empty</label>
             </div>
             <div class="checkbox-container">
                 <input type="checkbox" id="showLow_docks" checked>
-                <label for="showLow_docks">Low Docks</label>
+                <label for="showLow_docks">Almost full</label>
             </div>
             <div class="checkbox-container">
                 <input type="checkbox" id="showLow_bikes" checked>
-                <label for="showLow_bikes">Low Bikes</label>
+                <label for="showLow_bikes">Almost empty</label>
             </div>
             <div class="checkbox-container">
                 <input type="checkbox" id="showAvailable" checked>
                 <label for="showAvailable">Good Availability</label>
-            </div>
-        </div>
-        
-        <div class="stats" id="stats">
-            <div class="stat">
-                Total Stations: <span class="stat-value" id="totalStations">-</span>
-            </div>
-            <div class="stat">
-                Available Bikes: <span class="stat-value" id="totalBikes">-</span>
-            </div>
-            <div class="stat">
-                Available Docks: <span class="stat-value" id="totalDocks">-</span>
-            </div>
-            <div class="stat">
-                E-Bikes: <span class="stat-value" id="totalEbikes">-</span>
-            </div>
-        </div>
-    </div>
-    
-    <div class="legend">
-        <h3>Station Status Legend</h3>
-        <div class="legend-items">
-            <div class="legend-item">
-                <div class="legend-color" style="background: #dc2626; border: 3px solid #dc2626;"></div>
-                <span>Full Stations (no docks available) - Red circle</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #2563eb; border: 3px solid #2563eb;"></div>
-                <span>Empty Stations (no bikes available) - Blue circle</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #dc2626; border: 2px solid white;"></div>
-                <span>Low Docks Available (≤3 docks) - Red dot</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #2563eb; border: 2px solid white;"></div>
-                <span>Low Bikes Available (≤3 bikes) - Blue dot</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background: #16a34a; border: 2px solid white;"></div>
-                <span>Good Availability - Green dot</span>
             </div>
         </div>
     </div>
@@ -351,9 +263,13 @@
             const montrealCenter = [45.5088, -73.5878];
             
             map = L.map('map', {
-                zoomControl: true,
+                zoomControl: false,
                 attributionControl: true
             }).setView(montrealCenter, 12);
+
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(map);
             
             // Add clean, minimalistic map tiles
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
@@ -447,7 +363,6 @@
                 
                 // Display stations on map
                 displayStations();
-                updateStats();
                 
                 // Hide loading indicator
                 document.getElementById('loading').style.display = 'none';
@@ -624,7 +539,6 @@
             
             // Display stations and update stats
             displayStations();
-            updateStats();
             
             // Hide loading and show sample data notice
             document.getElementById('loading').style.display = 'none';
@@ -833,28 +747,6 @@
             Object.keys(stationMarkers).forEach(stationId => {
                 updateMarkerVisibility(stationId);
             });
-        }
-        
-        // Update statistics
-        function updateStats() {
-            let totalStations = 0;
-            let totalBikes = 0;
-            let totalDocks = 0;
-            let totalEbikes = 0;
-            
-            Object.values(stationData).forEach(station => {
-                if (station.is_installed) {
-                    totalStations++;
-                    totalBikes += station.num_bikes_available || 0;
-                    totalDocks += station.num_docks_available || 0;
-                    totalEbikes += station.num_ebikes_available || 0;
-                }
-            });
-            
-            document.getElementById('totalStations').textContent = totalStations;
-            document.getElementById('totalBikes').textContent = totalBikes;
-            document.getElementById('totalDocks').textContent = totalDocks;
-            document.getElementById('totalEbikes').textContent = totalEbikes;
         }
         
         // Setup event listeners
