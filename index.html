@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BIXI Station Map - Montreal Bike Share</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            font-size: 1rem;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            background: white;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .control-group label {
+            font-weight: 500;
+            font-size: 0.875rem;
+            color: #374151;
+        }
+        
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+        }
+        
+        .checkbox-container input[type="checkbox"] {
+            width: 1rem;
+            height: 1rem;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .stat {
+            background: #f1f5f9;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .stat-value {
+            font-weight: 700;
+            color: #1e40af;
+        }
+        
+        .legend {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin: 1rem 2rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .legend h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: #374151;
+        }
+        
+        .legend-items {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+        }
+        
+        .legend-color {
+            width: 1rem;
+            height: 1rem;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .map-container {
+            position: relative;
+            height: calc(100vh - 200px);
+            margin: 0 2rem 2rem 2rem;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            z-index: 1000;
+        }
+        
+        .spinner {
+            width: 2rem;
+            height: 2rem;
+            border: 3px solid #e2e8f0;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .popup-content {
+            min-width: 250px;
+        }
+        
+        .popup-header {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 0.75rem;
+            color: #1e40af;
+        }
+        
+        .popup-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .popup-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .popup-label {
+            font-weight: 500;
+            color: #64748b;
+        }
+        
+        .popup-value {
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            font-weight: 500;
+        }
+        
+        .status-no_docks { background: #fee2e2; color: #dc2626; }
+        .status-no_bikes { background: #dbeafe; color: #2563eb; }
+        .status-low_docks { background: #fee2e2; color: #dc2626; }
+        .status-low_bikes { background: #dbeafe; color: #2563eb; }
+        .status-available { background: #dcfce7; color: #16a34a; }
+        
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+            }
+            
+            .controls {
+                padding: 1rem;
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .legend {
+                margin: 1rem;
+            }
+            
+            .map-container {
+                margin: 0 1rem 1rem 1rem;
+                height: calc(100vh - 250px);
+            }
+            
+            .legend-items {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <div>Loading BIXI station data...</div>
+    </div>
+    
+    <header class="header">
+        <h1>BIXI Station Map</h1>
+        <p>Real-time Montreal bike share station status and availability</p>
+    </header>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Show Stations:</label>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showNo_docks" checked>
+                <label for="showNo_docks">Full (No Docks)</label>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showNo_bikes" checked>
+                <label for="showNo_bikes">Empty (No Bikes)</label>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showLow_docks" checked>
+                <label for="showLow_docks">Low Docks</label>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showLow_bikes" checked>
+                <label for="showLow_bikes">Low Bikes</label>
+            </div>
+            <div class="checkbox-container">
+                <input type="checkbox" id="showAvailable" checked>
+                <label for="showAvailable">Good Availability</label>
+            </div>
+        </div>
+        
+        <div class="stats" id="stats">
+            <div class="stat">
+                Total Stations: <span class="stat-value" id="totalStations">-</span>
+            </div>
+            <div class="stat">
+                Available Bikes: <span class="stat-value" id="totalBikes">-</span>
+            </div>
+            <div class="stat">
+                Available Docks: <span class="stat-value" id="totalDocks">-</span>
+            </div>
+            <div class="stat">
+                E-Bikes: <span class="stat-value" id="totalEbikes">-</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="legend">
+        <h3>Station Status Legend</h3>
+        <div class="legend-items">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #dc2626; border: 3px solid #dc2626;"></div>
+                <span>Full Stations (no docks available) - Red circle</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #2563eb; border: 3px solid #2563eb;"></div>
+                <span>Empty Stations (no bikes available) - Blue circle</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #dc2626; border: 2px solid white;"></div>
+                <span>Low Docks Available (≤3 docks) - Red dot</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #2563eb; border: 2px solid white;"></div>
+                <span>Low Bikes Available (≤3 bikes) - Blue dot</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #16a34a; border: 2px solid white;"></div>
+                <span>Good Availability - Green dot</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="map-container">
+        <div id="map"></div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    
+    <script>
+        // Global variables
+        let map;
+        let stationMarkers = {};
+        let stationData = {};
+        
+        // Multiple CORS proxy options for better reliability
+        const CORS_PROXIES = [
+            'https://corsproxy.io/?',
+            'https://api.allorigins.win/raw?url=',
+            'https://proxy.cors.sh/'
+        ];
+        
+        const BIXI_INFO_URL = 'https://gbfs.velobixi.com/gbfs/en/station_information.json';
+        const BIXI_STATUS_URL = 'https://gbfs.velobixi.com/gbfs/en/station_status.json';
+        
+        // Initialize the map
+        function initMap() {
+            // Montreal coordinates
+            const montrealCenter = [45.5088, -73.5878];
+            
+            map = L.map('map', {
+                zoomControl: true,
+                attributionControl: true
+            }).setView(montrealCenter, 12);
+            
+            // Add clean, minimalistic map tiles
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                attribution: '© OpenStreetMap contributors, © CARTO | © BIXI Montreal',
+                maxZoom: 19,
+                subdomains: 'abcd'
+            }).addTo(map);
+            
+            // Load station data
+            loadStationData();
+        }
+        
+        // Try fetching with different CORS proxies
+        async function fetchWithFallback(url) {
+            // First try without proxy (in case CORS is enabled)
+            try {
+                console.log(`Trying direct fetch: ${url}`);
+                const response = await fetch(url);
+                if (response.ok) {
+                    return response;
+                }
+            } catch (error) {
+                console.log('Direct fetch failed, trying proxies...');
+            }
+            
+            // Try each CORS proxy
+            for (let i = 0; i < CORS_PROXIES.length; i++) {
+                try {
+                    const proxy = CORS_PROXIES[i];
+                    const proxiedUrl = proxy + (proxy.includes('allorigins') ? encodeURIComponent(url) : url);
+                    console.log(`Trying proxy ${i + 1}: ${proxiedUrl}`);
+                    
+                    const response = await Promise.race([
+                        fetch(proxiedUrl),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('Timeout')), 8000)
+                        )
+                    ]);
+                    
+                    if (response.ok) {
+                        console.log(`Success with proxy ${i + 1}`);
+                        return response;
+                    }
+                } catch (error) {
+                    console.log(`Proxy ${i + 1} failed:`, error.message);
+                    continue;
+                }
+            }
+            
+            throw new Error('All proxy attempts failed');
+        }
+        
+        // Load and process station data
+        async function loadStationData() {
+            try {
+                console.log('Loading BIXI station data...');
+                
+                // Fetch both station info and status with fallback
+                const [infoResponse, statusResponse] = await Promise.all([
+                    fetchWithFallback(BIXI_INFO_URL),
+                    fetchWithFallback(BIXI_STATUS_URL)
+                ]);
+                
+                console.log('Responses received, parsing JSON...');
+                
+                const infoData = await infoResponse.json();
+                const statusData = await statusResponse.json();
+                
+                console.log('Data parsed successfully:', infoData.data.stations.length, 'stations');
+                
+                // Merge station info with status
+                const stations = infoData.data.stations;
+                const statuses = statusData.data.stations;
+                
+                // Create a map of station statuses
+                const statusMap = {};
+                statuses.forEach(status => {
+                    statusMap[status.station_id] = status;
+                });
+                
+                // Merge data
+                stations.forEach(station => {
+                    const status = statusMap[station.station_id];
+                    if (status) {
+                        stationData[station.station_id] = {
+                            ...station,
+                            ...status
+                        };
+                    }
+                });
+                
+                // Display stations on map
+                displayStations();
+                updateStats();
+                
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+                
+            } catch (error) {
+                console.error('Error loading station data:', error);
+                
+                // Try alternative approach with sample data if CORS proxy fails
+                if (error.message.includes('CORS') || error.message.includes('timeout') || error.message.includes('fetch')) {
+                    console.log('Trying fallback with sample data...');
+                    loadSampleData();
+                } else {
+                    document.getElementById('loading').innerHTML = 
+                        `<div style="color: #dc2626;">
+                            <strong>Failed to load station data</strong><br>
+                            Error: ${error.message}<br>
+                            <button onclick="location.reload()" style="margin-top: 1rem; padding: 0.5rem 1rem; background: #3b82f6; color: white; border: none; border-radius: 0.375rem; cursor: pointer;">
+                                Retry
+                            </button>
+                        </div>`;
+                }
+            }
+        }
+        
+        // Fallback function with sample BIXI data
+        function loadSampleData() {
+            console.log('Loading sample BIXI data...');
+            
+            // Sample data from the actual BIXI API (subset for demonstration)
+            const sampleStations = [
+                {
+                    station_id: "1",
+                    name: "Drummond / de Maisonneuve",
+                    short_name: "6001",
+                    lat: 45.4996545106653,
+                    lon: -73.57633531093597,
+                    capacity: 27,
+                    num_bikes_available: 10,
+                    num_ebikes_available: 1,
+                    num_docks_available: 17,
+                    num_bikes_disabled: 0,
+                    num_docks_disabled: 0,
+                    is_installed: 1,
+                    is_renting: 1,
+                    is_returning: 1,
+                    last_reported: Date.now() / 1000
+                },
+                {
+                    station_id: "2",
+                    name: "Ste-Catherine / Dézéry",
+                    short_name: "6002",
+                    lat: 45.539385081961676,
+                    lon: -73.54099988937377,
+                    capacity: 27,
+                    num_bikes_available: 0,
+                    num_ebikes_available: 0,
+                    num_docks_available: 27,
+                    num_bikes_disabled: 0,
+                    num_docks_disabled: 0,
+                    is_installed: 1,
+                    is_renting: 1,
+                    is_returning: 1,
+                    last_reported: Date.now() / 1000
+                },
+                {
+                    station_id: "3",
+                    name: "Clark / Evans",
+                    short_name: "6003",
+                    lat: 45.51109876719028,
+                    lon: -73.56784343719482,
+                    capacity: 19,
+                    num_bikes_available: 19,
+                    num_ebikes_available: 2,
+                    num_docks_available: 0,
+                    num_bikes_disabled: 0,
+                    num_docks_disabled: 0,
+                    is_installed: 1,
+                    is_renting: 1,
+                    is_returning: 1,
+                    last_reported: Date.now() / 1000
+                },
+                {
+                    station_id: "4",
+                    name: "du Champ-de-Mars / Gosford",
+                    short_name: "6004",
+                    lat: 45.50965520472071,
+                    lon: -73.55400860309601,
+                    capacity: 23,
+                    num_bikes_available: 2,
+                    num_ebikes_available: 0,
+                    num_docks_available: 21,
+                    num_bikes_disabled: 0,
+                    num_docks_disabled: 0,
+                    is_installed: 1,
+                    is_renting: 1,
+                    is_returning: 1,
+                    last_reported: Date.now() / 1000
+                },
+                {
+                    station_id: "5",
+                    name: "Brittany / Ainsley",
+                    short_name: "6005",
+                    lat: 45.52588991809354,
+                    lon: -73.65003436803818,
+                    capacity: 23,
+                    num_bikes_available: 12,
+                    num_ebikes_available: 3,
+                    num_docks_available: 11,
+                    num_bikes_disabled: 0,
+                    num_docks_disabled: 0,
+                    is_installed: 1,
+                    is_renting: 1,
+                    is_returning: 1,
+                    last_reported: Date.now() / 1000
+                },
+                {
+                    station_id: "14",
+                    name: "St-Denis / Ste-Catherine",
+                    short_name: "6014",
+                    lat: 45.51372291221464,
+                    lon: -73.5603104531765,
+                    capacity: 43,
+                    num_bikes_available: 26,
+                    num_ebikes_available: 4,
+                    num_docks_available: 17,
+                    num_bikes_disabled: 0,
+                    num_docks_disabled: 0,
+                    is_installed: 1,
+                    is_renting: 1,
+                    is_returning: 1,
+                    last_reported: Date.now() / 1000
+                },
+                {
+                    station_id: "62",
+                    name: "Métro Peel (de Maisonneuve / Stanley)",
+                    short_name: "6064",
+                    lat: 45.50038,
+                    lon: -73.57507,
+                    capacity: 49,
+                    num_bikes_available: 29,
+                    num_ebikes_available: 15,
+                    num_docks_available: 18,
+                    num_bikes_disabled: 2,
+                    num_docks_disabled: 0,
+                    is_installed: 1,
+                    is_renting: 1,
+                    is_returning: 1,
+                    last_reported: Date.now() / 1000
+                },
+                {
+                    station_id: "88",
+                    name: "Ste-Catherine / St-Laurent",
+                    short_name: "6099",
+                    lat: 45.51001233950764,
+                    lon: -73.56376379728317,
+                    capacity: 31,
+                    num_bikes_available: 1,
+                    num_ebikes_available: 0,
+                    num_docks_available: 30,
+                    num_bikes_disabled: 0,
+                    num_docks_disabled: 0,
+                    is_installed: 1,
+                    is_renting: 1,
+                    is_returning: 1,
+                    last_reported: Date.now() / 1000
+                }
+            ];
+            
+            // Load sample data into stationData
+            stationData = {};
+            sampleStations.forEach(station => {
+                stationData[station.station_id] = station;
+            });
+            
+            // Display stations and update stats
+            displayStations();
+            updateStats();
+            
+            // Hide loading and show sample data notice
+            document.getElementById('loading').style.display = 'none';
+            
+            // Add notice about sample data
+            const notice = document.createElement('div');
+            notice.style.cssText = `
+                position: fixed;
+                top: 1rem;
+                right: 1rem;
+                background: #fef3c7;
+                color: #d97706;
+                padding: 1rem;
+                border-radius: 0.5rem;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                font-size: 0.875rem;
+                max-width: 300px;
+                z-index: 1000;
+                border: 1px solid #f59e0b;
+            `;
+            notice.innerHTML = `
+                <strong>Demo Mode</strong><br>
+                Showing sample BIXI data due to API access limitations. 
+                <button onclick="location.reload()" style="margin-top: 0.5rem; padding: 0.25rem 0.5rem; background: #d97706; color: white; border: none; border-radius: 0.25rem; font-size: 0.75rem; cursor: pointer;">
+                    Try Again
+                </button>
+            `;
+            document.body.appendChild(notice);
+            
+            // Auto-hide notice after 10 seconds
+            setTimeout(() => {
+                if (notice.parentNode) {
+                    notice.parentNode.removeChild(notice);
+                }
+            }, 10000);
+        }
+        
+        // Get station status category
+        function getStationStatus(station) {
+            const availableBikes = station.num_bikes_available || 0;
+            const availableDocks = station.num_docks_available || 0;
+            
+            if (availableDocks === 0) return 'no-docks';        // Red circle (full)
+            if (availableBikes === 0) return 'no-bikes';        // Blue circle (empty)
+            if (availableDocks <= 3) return 'low-docks';        // Red dot (low docks)
+            if (availableBikes <= 3) return 'low-bikes';        // Blue dot (low bikes)
+            return 'available';                                  // Green (good)
+        }
+        
+        // Get marker style based on status
+        function getMarkerStyle(status) {
+            switch (status) {
+                case 'no-docks':     // 0 docks available - red dot with red circle
+                    return { 
+                        fillColor: '#dc2626', 
+                        color: '#dc2626', 
+                        weight: 4, 
+                        radius: 8,
+                        fillOpacity: 0.8,
+                        opacity: 1
+                    };
+                case 'no-bikes':     // 0 bikes available - blue dot with blue circle
+                    return { 
+                        fillColor: '#2563eb', 
+                        color: '#2563eb', 
+                        weight: 4, 
+                        radius: 8,
+                        fillOpacity: 0.8,
+                        opacity: 1
+                    };
+                case 'low-docks':    // Low docks - red dot
+                    return { 
+                        fillColor: '#dc2626', 
+                        color: 'white', 
+                        weight: 2, 
+                        radius: 6,
+                        fillOpacity: 0.9,
+                        opacity: 1
+                    };
+                case 'low-bikes':    // Low bikes - blue dot
+                    return { 
+                        fillColor: '#2563eb', 
+                        color: 'white', 
+                        weight: 2, 
+                        radius: 6,
+                        fillOpacity: 0.9,
+                        opacity: 1
+                    };
+                case 'available':    // Good availability - green
+                    return { 
+                        fillColor: '#16a34a', 
+                        color: 'white', 
+                        weight: 2, 
+                        radius: 7,
+                        fillOpacity: 0.8,
+                        opacity: 1
+                    };
+                default:
+                    return { 
+                        fillColor: '#6b7280', 
+                        color: 'white', 
+                        weight: 2, 
+                        radius: 6,
+                        fillOpacity: 0.8,
+                        opacity: 1
+                    };
+            }
+        }
+        
+        // Create popup content for station
+        function createPopupContent(station) {
+            const status = getStationStatus(station);
+            const statusLabels = {
+                'no-docks': 'Full Station (No Docks Available)',
+                'no-bikes': 'Empty Station (No Bikes Available)',
+                'low-docks': 'Low Dock Availability (≤3 docks)',
+                'low-bikes': 'Low Bike Availability (≤3 bikes)',
+                'available': 'Good Availability'
+            };
+            
+            return `
+                <div class="popup-content">
+                    <div class="popup-header">${station.name}</div>
+                    <div class="popup-info">
+                        <div class="popup-item">
+                            <span class="popup-label">Status:</span>
+                            <span class="status-indicator status-${status.replace('-', '_')}">${statusLabels[status]}</span>
+                        </div>
+                        <div class="popup-item">
+                            <span class="popup-label">Station ID:</span>
+                            <span class="popup-value">${station.short_name || station.station_id}</span>
+                        </div>
+                        <div class="popup-item">
+                            <span class="popup-label">Available Bikes:</span>
+                            <span class="popup-value">${station.num_bikes_available || 0}</span>
+                        </div>
+                        <div class="popup-item">
+                            <span class="popup-label">E-Bikes:</span>
+                            <span class="popup-value">${station.num_ebikes_available || 0}</span>
+                        </div>
+                        <div class="popup-item">
+                            <span class="popup-label">Available Docks:</span>
+                            <span class="popup-value">${station.num_docks_available || 0}</span>
+                        </div>
+                        <div class="popup-item">
+                            <span class="popup-label">Total Capacity:</span>
+                            <span class="popup-value">${station.capacity || 0}</span>
+                        </div>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #6b7280; text-align: center; padding-top: 0.5rem;">
+                        Last updated: ${new Date(station.last_reported * 1000).toLocaleString()}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Display stations on map
+        function displayStations() {
+            // Clear existing markers
+            Object.values(stationMarkers).forEach(marker => {
+                map.removeLayer(marker);
+            });
+            stationMarkers = {};
+            
+            // Add markers for each station
+            Object.values(stationData).forEach(station => {
+                if (station.lat && station.lon) {
+                    const status = getStationStatus(station);
+                    const style = getMarkerStyle(status);
+                    
+                    const marker = L.circleMarker([station.lat, station.lon], style);
+                    
+                    marker.bindPopup(createPopupContent(station), {
+                        maxWidth: 300,
+                        className: 'custom-popup'
+                    });
+                    
+                    stationMarkers[station.station_id] = {
+                        marker: marker,
+                        status: status
+                    };
+                    
+                    updateMarkerVisibility(station.station_id);
+                }
+            });
+        }
+        
+        // Update marker visibility based on filters
+        function updateMarkerVisibility(stationId) {
+            const markerData = stationMarkers[stationId];
+            if (!markerData) return;
+            
+            const status = markerData.status;
+            const checkboxId = `show${status.charAt(0).toUpperCase() + status.slice(1).replace('-', '_')}`;
+            const shouldShow = document.getElementById(checkboxId).checked;
+            
+            if (shouldShow && !map.hasLayer(markerData.marker)) {
+                map.addLayer(markerData.marker);
+            } else if (!shouldShow && map.hasLayer(markerData.marker)) {
+                map.removeLayer(markerData.marker);
+            }
+        }
+        
+        // Update all marker visibility
+        function updateAllMarkersVisibility() {
+            Object.keys(stationMarkers).forEach(stationId => {
+                updateMarkerVisibility(stationId);
+            });
+        }
+        
+        // Update statistics
+        function updateStats() {
+            let totalStations = 0;
+            let totalBikes = 0;
+            let totalDocks = 0;
+            let totalEbikes = 0;
+            
+            Object.values(stationData).forEach(station => {
+                if (station.is_installed) {
+                    totalStations++;
+                    totalBikes += station.num_bikes_available || 0;
+                    totalDocks += station.num_docks_available || 0;
+                    totalEbikes += station.num_ebikes_available || 0;
+                }
+            });
+            
+            document.getElementById('totalStations').textContent = totalStations;
+            document.getElementById('totalBikes').textContent = totalBikes;
+            document.getElementById('totalDocks').textContent = totalDocks;
+            document.getElementById('totalEbikes').textContent = totalEbikes;
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Filter checkboxes
+            ['showNo_docks', 'showNo_bikes', 'showLow_docks', 'showLow_bikes', 'showAvailable'].forEach(id => {
+                document.getElementById(id).addEventListener('change', updateAllMarkersVisibility);
+            });
+        }
+        
+        // Auto-refresh data every 30 seconds
+        function startAutoRefresh() {
+            setInterval(() => {
+                loadStationData();
+            }, 30000);
+        }
+        
+        // Initialize everything when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            setupEventListeners();
+            startAutoRefresh();
+        });
+    </script>
+</body>
+</html>
